@@ -21,6 +21,25 @@ begin
     o.on("-B", "--load-burp=PATH", "Load Burp Jar from PATH") do |b|
       args[:load_burp] = b
     end
+
+    o.on('-s', '--state=FILE', "Restore burp state file on startup") do |r|
+      args[:restore] = r
+    end
+
+    o.on('-r', '--require=LIB', 
+         'load a ruby lib (or jar) after Burp loads') do |i|
+      (args[:requires] ||= []).push(i)
+    end
+
+    o.on('-e', '--extend=MOD', 
+         'Extend Buby with a module (loaded via -r?)') do |m|
+      (args[:extensions] ||= []).push(m)
+    end
+
+    o.on('-v', '--version', 'Prints version and exits.') do 
+      puts "#{File.basename $0} v#{Buby::VERSION}"
+      exit 0
+    end
   end
 
   opts.parse!(ARGV)
@@ -28,7 +47,9 @@ begin
   if jar=args[:load_burp]
     raise "Load Burp Error: #{jar} did not provide burp.StartBurp" unless Buby.load_burp(jar)
   end
+
   raise "Load Burp Error: Specify a path to your burp.jar with -B" unless Buby.burp_loaded?
+
 rescue
   STDERR.puts $!
   exit 1
@@ -38,7 +59,50 @@ $DEBUG=true if args[:debug]
 
 $burp = Buby.start_burp()
 
-if args[:irb]
-  puts "Global $burp is set to #{$burp.inspect}"
-  IRB.start 
+if libs=args[:requires]
+  libs.each {|lib| STDERR.puts "Loading: #{lib.inspect}"; require(lib)}
 end
+
+def resolve_const(str)
+  raise "can't resolve empty name #{str.inspect}" if str.empty?
+  names = str.split('::')
+  obj = ::Object
+  names.each do |name|
+    raise "#{name.inspect} is not defined" unless obj.const_defined?(name)
+    obj = obj.const_get(name)
+  end
+  return obj if obj != ::Object
+end
+
+if mods=args[:extensions]
+  mods.each do |mod|
+    obj = resolve_const(mod)
+    raise "#{obj.name} is not a module" unless obj.kind_of? Module
+    STDERR.puts "Extending $burp with: #{obj.name}"
+    $burp.extend(obj)
+    if $burp.respond_to?(imeth=:"init_#{mod.split('::').last}")
+      $burp.__send__ imeth
+    end
+  end
+end
+
+if f=args[:restore]
+  raise "no such file #{f.inspect}" unless File.exists?(f)
+  STDERR.puts "Restoring burp state from: #{f.inspect}"
+  $burp.restore_state(f)
+end
+
+if args[:irb]
+  # yucky hack...
+  IRB.setup(nil)
+  IRB.conf[:IRB_NAME] = File.basename($0, ".rb")
+  module IRB
+    class <<self
+      def setup(*args); end
+    end
+  end
+  puts "Global $burp is set to #{$burp.inspect}",
+       " Important Note: exit with $burp.close"
+  IRB.start()
+end
+

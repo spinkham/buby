@@ -1,3 +1,50 @@
+== 1.1.7 / 2009-12-29
+  * fix evt_proxy_message_raw bridge to modify proxy messages (broken in 1.1.6)
+  * switched from bones to jeweler for project mgmt
+
+== 1.1.6 / 2009-11-19
+* fix
+  * poc_generator.rb example fixed to properly parse port in Host header
+  * fix evt_proxy_message bridge to deal correctly with binary content data
+
+== 1.1.5 / 2009-10-15
+* enhancements
+  * added support for exitSuite in burp v 1.2.17+
+  * added samples/poc_generator.rb
+
+== 1.1.4.1 / 2009-09-22
+* fix
+  * Buby.harvest_cookies_from_history() was broken. 
+    It now implements select() block semantics and always returns an array.
+    
+== 1.1.4 / 2009-09-14
+* enhancements
+  * buby got implants! (har har)
+  * Ruby wrapper classes added for proxy_history, site_map, and scan_issues
+  * Extensions module for IHttpRequestResponse burp's class implementation
+  * Extensions module for IScanIssue burp's class implementation
+  * Added -s/--state, -r/--require, -e/--extend to buby cmd-line executable
+  * Added -v/--version buby cmd-line flag
+  * Modified samples for use as modules with -r/-e as well as run standalone
+  * Added drb client and server sample
+
+== 1.1.3.1 / 2009-09-09
+* fix
+  * fixed a typo in the String type-check for Buby.getParameters()
+
+== 1.1.3 / 2009-08-25
+* 1 enhancement
+  * new convenience methods added for iterating and searching through
+    proxy history, scan history, etc.
+* 1 fix
+  * The gem now includes a buby.jar which should be usable with Java 1.5+
+    (previously the jar had been compiled only for Java 1.6)
+
+== 1.1.2 / 2009-08-20
+* 1 enhancement
+  * Support added for the new getScanIssues extender method exposed in v1.2.15
+    See http://releases.portswigger.net/2009/08/v1215.html
+
 == 1.1.1 / 2009-06-24
 * Fix
   * fixed getSiteMap callback front-end so that it takes the urlprefix argument

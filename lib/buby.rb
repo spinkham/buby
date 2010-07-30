@@ -2,6 +2,7 @@ include Java
 
 require 'pp'
 require "buby.jar"
+require 'buby/extends.rb'
 
 include_class 'BurpExtender'
 
@@ -37,14 +38,23 @@ include_class 'BurpExtender'
 # * sendToRepeater
 # * sendToSpider
 #
-# Buby also provides front-end ruby methods for the new callback methods added
-# since Burp 1.2.09:
+# Buby also provides front-end ruby methods for the various callback methods 
+# supported by Burp. New callbacks have been cropping up in newer Burp versions
+# frequently. 
+# 
+# Available since Burp 1.2.09:
 # * getProxyHistory
 # * getSiteMap
 # * restoreState
 # * saveState
 # * getParameters
 # * getHeaders
+#
+# Available since Burp 1.2.15:
+# * getScanIssues
+#
+# Available since Burp 1.2.17:
+# * exitSuite
 #
 # If you wish to access any of the IBurpExtenderCallbacks methods directly. 
 # You can use 'burp_callbacks' to obtain a reference.
@@ -72,7 +82,6 @@ include_class 'BurpExtender'
 class Buby
 
   # :stopdoc:
-  VERSION = '1.1.1'
   LIBPATH = ::File.expand_path(::File.dirname(__FILE__)) + ::File::SEPARATOR
   PATH = ::File.dirname(LIBPATH) + ::File::SEPARATOR
   # :startdoc:
@@ -112,9 +121,10 @@ class Buby
   #  * host = The hostname of the remote HTTP server.
   #  * port = The port of the remote HTTP server.
   #  * https = Flags whether the protocol is HTTPS or HTTP.
-  #  * req  = The full HTTP request.
+  #  * req  = The full HTTP request. (String or Java bytes[])
   def doActiveScan(host, port, https, req)
-    _check_cb.doActiveScan(host, port, https, req.to_java_bytes)
+    req = req.to_java_bytes if req.is_a? String
+    _check_cb.doActiveScan(host, port, https, req)
   end
   alias do_active_scan doActiveScan
   alias active_scan doActiveScan
@@ -124,10 +134,12 @@ class Buby
   #  * host = The hostname of the remote HTTP server.
   #  * port = The port of the remote HTTP server.
   #  * https = Flags whether the protocol is HTTPS or HTTP.
-  #  * req  = The full HTTP request.
-  #  * rsp  = The full HTTP response.
+  #  * req  = The full HTTP request. (String or Java bytes[])
+  #  * rsp  = The full HTTP response. (String or Java bytes[])
   def doPassiveScan(host, port, https, req, rsp)
-    _check_cb.doPassiveScan(host, port, https, req.to_java_bytes, rsp.to_java_bytes)
+    req = req.to_java_bytes if req.is_a? String
+    rsp = rsp.to_java_bytes if rsp.is_a? String
+    _check_cb.doPassiveScan(host, port, https, req, rsp)
   end
   alias do_passive_scan doPassiveScan
   alias passive_scan doPassiveScan
@@ -135,7 +147,8 @@ class Buby
   # Exclude the specified URL from the Suite-wide scope.
   #  * url = The URL to exclude from the Suite-wide scope.
   def excludeFromScope(url)
-    _check_cb.excludeFromScope(java.net.URL.new(url.to_s))
+    url = java.net.URL.new(url) if url.is_a? String
+    _check_cb.excludeFromScope(url)
   end
   alias exclude_from_scope excludeFromScope
   alias exclude_scope excludeFromScope
@@ -143,7 +156,8 @@ class Buby
   # Include the specified URL in the Suite-wide scope.
   #  * url = The URL to exclude in the Suite-wide scope.
   def includeInScope(url)
-    _check_cb.includeInScope(java.net.URL.new(url.to_s))
+    url = java.net.URL.new(url) if url.is_a? String
+    _check_cb.includeInScope(url)
   end
   alias include_in_scope includeInScope 
   alias include_scope includeInScope 
@@ -153,7 +167,8 @@ class Buby
   #
   # Returns: true / false
   def isInScope(url)
-    _check_cb.isInScope(java.net.URL.new(url.to_s))
+    url = java.net.URL.new(url) if url.is_a? String
+    _check_cb.isInScope(url)
   end
   alias is_in_scope isInScope
   alias in_scope? isInScope
@@ -170,13 +185,12 @@ class Buby
   #  * host  = The hostname of the remote HTTP server.
   #  * port  = The port of the remote HTTP server.
   #  * https = Flags whether the protocol is HTTPS or HTTP.
-  #  * req   = The full HTTP request.
+  #  * req   = The full HTTP request. (String or Java bytes[])
   #
   # Returns: The full response retrieved from the remote server.
   def makeHttpRequest(host, port, https, req)
-    String.from_java_bytes(
-      _check_cb.makeHttpRequest(host, port, https, req.to_java_bytes)
-    )
+    req = req.to_java_bytes if req.is_a? String
+    String.from_java_bytes( _check_cb.makeHttpRequest(host, port, https, req) )
   end
   alias make_http_request makeHttpRequest
   alias make_request makeHttpRequest
@@ -185,9 +199,10 @@ class Buby
   #  * host  = The hostname of the remote HTTP server.
   #  * port  = The port of the remote HTTP server.
   #  * https = Flags whether the protocol is HTTPS or HTTP.
-  #  * req   = The full HTTP request.
+  #  * req   = The full HTTP request.  (String or Java bytes[])
   def sendToIntruder(host, port, https, req)
-    _check_cb.sendToIntruder(host, port, https, req.to_java_bytes)
+    req = req.to_java_bytes if req.is_a? String
+    _check_cb.sendToIntruder(host, port, https, req)
   end
   alias send_to_intruder sendToIntruder
   alias intruder sendToIntruder
@@ -196,10 +211,11 @@ class Buby
   #  * host  = The hostname of the remote HTTP server.
   #  * port  = The port of the remote HTTP server.
   #  * https = Flags whether the protocol is HTTPS or HTTP.
-  #  * req   = The full HTTP request.
+  #  * req   = The full HTTP request. (String or Java bytes[])
   #  * tab   = The tab caption displayed in Repeater. (default: auto-generated)
   def sendToRepeater(host, port, https, req, tab=nil)
-    _check_cb.sendToRepeater(host, port, https, req.to_java_bytes, tab)
+    req = req.to_java_bytes if req.is_a? String
+    _check_cb.sendToRepeater(host, port, https, req, tab)
   end
   alias send_to_repeater sendToRepeater
   alias repeater sendToRepeater
@@ -207,17 +223,15 @@ class Buby
   # Send a seed URL to the Burp Spider tool.
   #  * url = The new seed URL to begin spidering from.
   def sendToSpider(url)
-    _check_cb.includeInScope(java.net.URL.new(url.to_s))
+    url = java.net.URL.new(url) if url.is_a? String
+    _check_cb.includeInScope(url)
   end
   alias send_to_spider sendToSpider
   alias spider sendToSpider
 
-  # This method is a __send__ call back gate for the IBurpExtenderCallbacks
+  # This method is a __send__ callback gate for the IBurpExtenderCallbacks
   # reference. It first checks to see if a method is available before calling
   # with the specified arguments, and raises an exception if it is unavailable.
-  #
-  # This method was added for provisional calling of new callbacks added since
-  # Burp 1.2.09
   #
   # * meth = string or symbol name of method
   # * args = variable length array of arguments to pass to meth
@@ -229,21 +243,36 @@ class Buby
     cb.__send__ meth, *args
   end
 
+
   # Returns a Java array of IHttpRequestResponse objects pulled directly from 
   # the Burp proxy history.
   def getProxyHistory
-    _check_and_callback(:getProxyHistory)
+    HttpRequestResponseList.new(_check_and_callback(:getProxyHistory))
   end
   alias proxy_history getProxyHistory
   alias get_proxy_history getProxyHistory
 
+
   # Returns a Java array of IHttpRequestResponse objects pulled directly from 
-  # the Burp site map.
-  def getSiteMap(urlprefix)
-    _check_and_callback(:getSiteMap, urlprefix)
+  # the Burp site map for all urls matching the specified literal prefix. 
+  # The prefix can be nil to return all objects.
+  def getSiteMap(urlprefix=nil)
+    HttpRequestResponseList.new(_check_and_callback(:getSiteMap, urlprefix))
   end
   alias site_map getSiteMap
   alias get_site_map getSiteMap
+
+
+  # This method returns all of the current scan issues for URLs matching the 
+  # specified literal prefix. The prefix can be nil to match all issues.
+  #
+  # IMPORTANT: This method is only available with Burp 1.2.15 and higher.
+  def getScanIssues(urlprefix=nil)
+    ScanIssuesList.new( _check_and_callback(:getScanIssues, urlprefix) )
+  end
+  alias scan_issues getScanIssues
+  alias get_scan_issues getScanIssues
+
 
   # Restores Burp session state from a previously saved state file.
   # See also: saveState
@@ -256,6 +285,7 @@ class Buby
   end
   alias restore_state restoreState
 
+
   # Saves the current Burp session to a state file. See also restoreState.
   #
   # IMPORTANT: This method is only available with Burp 1.2.09 and higher.
@@ -266,18 +296,21 @@ class Buby
   end
   alias save_state saveState
 
+
   # Parses a raw HTTP request message and returns an associative array 
   # containing parameters as they are structured in the 'Parameters' tab in the 
   # Burp request UI.
   #
   # IMPORTANT: This method is only available with Burp 1.2.09 and higher.
   #
-  # req = raw request string (converted to Java bytes[] in passing)
+  # req = raw request (String or Java bytes[])
   def getParameters(req)
-    _check_and_callback(:getParameters, req.to_s.to_java_bytes)
+    req = req.to_java_bytes if req.is_a? String
+    _check_and_callback(:getParameters, req)
   end
   alias parameters getParameters
   alias get_parameters getParameters
+
 
   # Parses a raw HTTP message (request or response ) and returns an associative
   # array containing the headers as they are structured in the 'Headers' tab 
@@ -285,13 +318,21 @@ class Buby
   #
   # IMPORTANT: This method is only available with Burp 1.2.09 and higher.
   #
-  # msg = raw request/response string (converted to Java bytes[] in passing)
+  # msg = raw request/response (String or Java bytes[])
   def getHeaders(msg)
-    _check_and_callback(:getHeaders, msg.to_s.to_java_bytes)
+    msg = msg.to_java_bytes if msg.is_a? String
+    _check_and_callback(:getHeaders, msg)
   end
   alias headers getHeaders
-  alias get_Headers getHeaders
+  alias get_headers getHeaders
 
+  # Shuts down Burp programatically. If the method returns the user cancelled
+  # the shutdown prompt.
+  def exitSuite(prompt_user=false)
+    _check_and_callback(:exitSuite, prompt_user ? true : false)
+  end
+  alias exit_suite exitSuite
+  alias close exitSuite
 
   ### Event Handlers ###
 
@@ -335,6 +376,25 @@ class Buby
   ACTION_DONT_INTERCEPT = BurpExtender::ACTION_DONT_INTERCEPT
   ACTION_DROP           = BurpExtender::ACTION_DROP
 
+  # Seems we need to specifically render our 'message' to a string here in
+  # ruby. Otherwise there's flakiness when converting certain binary non-ascii
+  # sequences. As long as we do it here, it should be fine.
+  #
+  # Note: This method maps to the 'processProxyMessage' method in the java 
+  # implementation of BurpExtender.
+  #
+  # This method just handles the conversion to and from evt_proxy_message
+  # which expects a message string 
+  def evt_proxy_message_raw msg_ref, is_req, rhost, rport, is_https, http_meth, url, resourceType, status, req_content_type, message, action
+    pp [:evt_proxy_message_raw_hit, msg_ref, is_req, rhost, rport, is_https, http_meth, url, resourceType, status, req_content_type, message, action ] if $DEBUG
+
+    str_msg = String.from_java_bytes(message)
+    ret = evt_proxy_message(msg_ref, is_req, rhost, rport, is_https, http_meth, url, resourceType, status, req_content_type, str_msg, action)
+
+    message = ret.to_java_bytes if ret.object_id != str_msg.object_id
+    return message
+  end
+
   # This method is called by BurpExtender while proxying HTTP messages and
   # before passing them through the Burp proxy. Implementations can use this
   # method to implement arbitrary processing upon HTTP requests and responses 
@@ -344,6 +404,9 @@ class Buby
   #
   # Note: This method maps to the 'processProxyMessage' method in the java 
   # implementation of BurpExtender.
+  # 
+  # See also, evt_proxy_message_raw which is actually called before this
+  # in the BurpExtender processProxyMessage handler.
   #
   # Below are the parameters descriptions based on the IBurpExtender 
   # javadoc. Where applicable, decriptions have been modified for 
@@ -483,9 +546,10 @@ class Buby
   #
   # This method should be overridden if you wish to implement functionality
   # relating to generalized requests and responses from any BurpSuite tool.
-  # You may want to use evt_proxy_message if you only intend to work with only 
+  #
+  # You may want to use evt_proxy_message if you only intend to work on
   # proxied messages. Note, however, the IHttpRequestResponse Java object is 
-  # not used in evt_proxy_http_message and gives evt_http_message a somewhat 
+  # not used in evt_proxy_message and gives evt_http_message a somewhat 
   # nicer interface to work with.
   #
   # Parameters:
@@ -496,7 +560,8 @@ class Buby
   # * message_info = an instance of the IHttpRequestResponse Java class with
   #   methods for accessing and manipulating various attributes of the message.
   #
-  def evt_http_message tool_name, is_request, message_info
+  def evt_http_message(tool_name, is_request, message_info)
+    HttpRequestResponseHelper.implant(message_info)
     pp([:got_http_message, tool_name, is_request, message_info]) if $DEBUG
   end
 
@@ -507,12 +572,13 @@ class Buby
   # IMPORTANT: This event handler is only used in Burp version 1.2.09 and 
   # higher.
   #
-  # Note: this method maps to the newScanIssue BurpExtender Java method.
+  # Note: this method maps to the BurpExtender Java method.
   #
   # Parameters:
   # * issue = an instance of the IScanIssue Java class with methods for viewing
   #   information on the scan issue that was generated.
   def evt_scan_issue(issue)
+    ScanIssueHelper.implant(issue)
     pp([:got_scan_issue, issue]) if $DEBUG
   end
 
@@ -522,6 +588,104 @@ class Buby
   def evt_application_closing 
     pp([:got_app_close]) if $DEBUG
   end
+
+  ### Sugar/Convenience methods
+
+  # This is a convenience wrapper which can load a given burp state file and 
+  # lets its caller to perform actions inside of a block on the site map 
+  # contained in the loaded session. 
+  #
+  # If a statefile argument isn't specified current burp session state is used.
+  #
+  # Yields each entry in the site map to a block.
+  def with_site_map(urlprefix=nil, statefile=nil)
+    with_statefile(statefile) do |this|
+      this.site_map(urlprefix).each {|h| yield h }
+    end
+  end
+
+  # This is a convenience wrapper which can load a given burp state file and 
+  # lets its caller to perform actions inside of a block on the proxy history 
+  # contained in the loaded session. 
+  #
+  # If a statefile argument isn't specified current burp session state is used.
+  #
+  # Yields each entry in the proxy history to a block.
+  def with_proxy_history(statefile=nil)
+    with_statefile(statefile) do |this|
+      this.proxy_history.each {|h| yield h }
+    end
+  end
+
+  # This is a convenience wrapper which loads a given burp statefile and lets
+  # its caller perform actions via burp while its loaded on it inside of a 
+  # block. The old state is restored after the block completes.
+  #
+  # It can safely be run with a nil statefile argument in which the 
+  # current burp session state is used.
+  def with_statefile(statefile=nil)
+    if statefile
+      # save current state:
+      old_state=".#{$$}.#{Time.now.to_i}.state.bak"
+      self.alert "Saving current state to temp statefile: #{old_state}"
+      self.save_state(old_state)
+      self.alert "Restoring state: #{statefile}"
+      self.restore_state(statefile)
+    end
+
+    yield self
+
+    if statefile
+      # restore original state
+      self.alert "Restoring temp statefile: #{old_state}"
+      self.restore_state old_state
+      self.alert "Deleting temp state file: #{old_state}"
+      File.unlink old_state
+    end
+  end
+
+  # Searches the proxy history for the url's matched by the specified 
+  # regular expression (returns them all if urlrx is nil).
+  #
+  # A statefile to search in can optionally be specified or the existing
+  # state will be used if statefile is nil.
+  #
+  # This method also accepts an optional block which is passed each of the
+  # matched history members.
+  def search_proxy_history(statefile=nil, urlrx=nil)
+    ret = []
+    with_proxy_history(statefile) do |r|
+      if (not urlrx) or r.url.to_s =~ urlrx
+        ret << r if (not block_given?) or yield(r)
+      end
+    end
+    return ret
+  end
+
+  # Harvest cookies from a session's proxy history.
+  #
+  # Params:
+  #   cookie    = optional: name of cookie to harvest
+  #   urlrx     = optional: regular expression to match urls against
+  #   statefile = optional: filename for a burp session file to temporarily load
+  #               and harvest from.
+  #
+  # Takes an optional block as additional 'select' criteria for cookies.
+  # The block return value of true/false will determine whether a cookie 
+  # string is selected.
+  def harvest_cookies_from_history(cookie=nil, urlrx=nil, statefile=nil)
+    ret = []
+    search_proxy_history(statefile, urlrx) do |hrr|
+      if heads=hrr.rsp_headers
+        ret += heads.select do |h| 
+          h[0].downcase == 'set-cookie' and (not block_given? or yield(h[1]))
+        end.map{|h| h[1]}
+      end
+    end
+    return ret
+  end
+
+  ### Startup stuff
 
   # Prepares the java BurpExtender implementation with a reference
   # to self as the module handler and launches burp suite.
@@ -561,7 +725,7 @@ class Buby
     begin 
       include_class 'burp.StartBurp'
       return true
-    rescue
+    rescue NameError
       return false
     end
   end
@@ -597,12 +761,8 @@ class Buby
     Dir.glob(search_me).sort.each {|rb| require rb}
   end
 
-  # Returns the version string for the library.
-  #
-  def self.version
-    VERSION
-  end
-end
+end # Buby
+
 
 # Try requiring 'burp.jar' from the Ruby lib-path
 unless Buby.burp_loaded?
